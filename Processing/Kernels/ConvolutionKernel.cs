@@ -29,11 +29,7 @@ public class ConvolutionKernel
 
     protected void Normalize()
     {
-        float sum = 0;
-        for (int i = 0; i < _size; i++)
-            for (int j = 0; j < _size; j++)
-                sum += _kernel[i, j];
-        
+        float sum = _kernel.Cast<float>().Sum();
         if (sum != 0)
         {
             for (int i = 0; i < _size; i++)

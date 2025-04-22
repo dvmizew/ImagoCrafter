@@ -1,5 +1,4 @@
 ﻿using ImagoCrafter.Core;
-using ImagoCrafter.Processing;
 using ImagoCrafter.Processing.Filters;
 
 class Program
@@ -58,10 +57,6 @@ class Program
     {
         Console.WriteLine("Usage: ImagoCrafter <command> <input-file> [options]");
         Console.WriteLine("\nAvailable commands:");
-        Console.WriteLine("  resize     - Resize an image");
-        Console.WriteLine("  blur       - Apply blur effect");
-        Console.WriteLine("  sharpen    - Sharpen an image");
-        Console.WriteLine("  compress   - Compress image");
-        Console.WriteLine("  vignette   - Apply vignette effect");
+        Console.WriteLine("  blur       - Apply blur effect [sigma]");
     }
 }
