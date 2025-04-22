@@ -1,0 +1,44 @@
+namespace ImagoCrafter.Processing.Kernels;
+
+public class ConvolutionKernel
+{
+    protected float[,] _kernel;
+    protected int _size;
+    protected float _factor;
+    protected float _bias;
+
+    public ConvolutionKernel(int size)
+    {
+        _size = size;
+        _kernel = new float[size, size];
+        _factor = 1.0f;
+        _bias = 0.0f;
+    }
+
+    public float[,] Matrix => _kernel;
+    public float Factor => _factor;
+    public float Bias => _bias;
+    public int Size => _size;
+
+    public void SetKernel(float[,] kernel, float factor = 1.0f, float bias = 0.0f)
+    {
+        _kernel = kernel;
+        _factor = factor;
+        _bias = bias;
+    }
+
+    protected void Normalize()
+    {
+        float sum = 0;
+        for (int i = 0; i < _size; i++)
+            for (int j = 0; j < _size; j++)
+                sum += _kernel[i, j];
+        
+        if (sum != 0)
+        {
+            for (int i = 0; i < _size; i++)
+                for (int j = 0; j < _size; j++)
+                    _kernel[i, j] /= sum;
+        }
+    }
+}
