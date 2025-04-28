@@ -17,9 +17,9 @@ public class ConvolutionProcessor : IImageProcessor
         Image output = new Image(input.Width, input.Height, input.Channels);
         int kernelRadius = _kernel.Size / 2;
 
-        for (int y = kernelRadius; y < input.Height - kernelRadius; y++)
+        for (int y = 0; y < input.Height; y++)
         {
-            for (int x = kernelRadius; x < input.Width - kernelRadius; x++)
+            for (int x = 0; x < input.Width; x++)
             {
                 for (int c = 0; c < input.Channels; c++)
                 {
@@ -29,16 +29,14 @@ public class ConvolutionProcessor : IImageProcessor
                     {
                         for (int kx = -kernelRadius; kx <= kernelRadius; kx++)
                         {
-                            int px = x + kx;
-                            int py = y + ky;
+                            int px = Math.Clamp(x + kx, 0, input.Width - 1);
+                            int py = Math.Clamp(y + ky, 0, input.Height - 1);
                             float kernelValue = _kernel.Matrix[ky + kernelRadius, kx + kernelRadius];
                             sum += input.GetPixelComponent(px, py, c) * kernelValue;
                         }
                     }
 
-                    sum = sum * _kernel.Factor + _kernel.Bias;
-                    byte result = (byte)Math.Clamp(sum, 0, 255);
-                    output.SetPixelComponent(x, y, c, result);
+                    output.SetPixelComponent(x, y, c, (byte)Math.Clamp(sum * _kernel.Factor + _kernel.Bias, 0, 255));
                 }
             }
         }
