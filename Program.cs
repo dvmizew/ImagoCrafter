@@ -49,6 +49,24 @@ class Program
                     result = blurProcessor.Process(image);
                     break;
 
+                case "resize":
+                    if (args.Length < 4)
+                    {
+                        Console.WriteLine("Error: Width and height parameters are required for resize.");
+                        PrintUsage("resize");
+                        return;
+                    }
+                    
+                    if (!int.TryParse(args[2], out int width) || !int.TryParse(args[3], out int height))
+                    {
+                        Console.WriteLine("Error: Width and height must be valid integers.");
+                        return;
+                    }
+
+                    var resizeProcessor = new ResizeProcessor(width, height);
+                    result = resizeProcessor.Process(image);
+                    break;
+
                 default:
                     Console.WriteLine($"Unknown command: {command}");
                     PrintUsage();
@@ -75,6 +93,7 @@ class Program
             Console.WriteLine("Usage: ImagoCrafter <command> <input-file> [options]");
             Console.WriteLine("\nAvailable commands:");
             Console.WriteLine("  blur       - Apply Gaussian blur effect");
+            Console.WriteLine("  resize     - Resize image to specified dimensions");
             Console.WriteLine("\nFor command-specific options, use: ImagoCrafter <command> --help");
             return;
         }
@@ -86,6 +105,13 @@ class Program
                 Console.WriteLine("\nOptions:");
                 Console.WriteLine("  sigma      - Blur intensity (default: 1.0).");
                 Console.WriteLine("               Example: ImagoCrafter blur image.jpg 2.5");
+                break;
+            case "resize":
+                Console.WriteLine("Usage: ImagoCrafter resize <input-file> <width> <height>");
+                Console.WriteLine("\nParameters:");
+                Console.WriteLine("  width       - Target width in pixels");
+                Console.WriteLine("  height      - Target height in pixels");
+                Console.WriteLine("               Example: ImagoCrafter resize image.jpg 800 600");
                 break;
             default:
                 Console.WriteLine($"Unknown command: {command}");
