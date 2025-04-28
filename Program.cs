@@ -8,13 +8,26 @@ class Program
         Console.WriteLine("ImagoCrafter - Image Processing Tool");
         Console.WriteLine("-----------------------------------");
 
-        if (args.Length < 2)
+        if (args.Length == 0 || args[0] == "--help")
         {
             PrintUsage();
             return;
         }
 
         string command = args[0].ToLower();
+        
+        if (args.Length == 2 && args[1] == "--help")
+        {
+            PrintUsage(command);
+            return;
+        }
+
+        if (args.Length < 2)
+        {
+            PrintUsage();
+            return;
+        }
+
         string inputFile = args[1];
 
         try
@@ -25,12 +38,14 @@ class Program
             switch (command)
             {
                 case "blur":
-                    var blurProcessor = new GaussianBlurProcessor();
+                    float sigma = 1.0f;
+
                     if (args.Length > 2)
                     {
-                        float sigma = float.Parse(args[2]);
-                        blurProcessor.Configure(new Dictionary<string, object> { { "sigma", sigma } });
+                        sigma = float.Parse(args[2]);
                     }
+                    
+                    var blurProcessor = new GaussianBlurProcessor(sigma);
                     result = blurProcessor.Process(image);
                     break;
 
@@ -53,10 +68,29 @@ class Program
         }
     }
 
-    static void PrintUsage()
+    static void PrintUsage(string? command = null)
     {
-        Console.WriteLine("Usage: ImagoCrafter <command> <input-file> [options]");
-        Console.WriteLine("\nAvailable commands:");
-        Console.WriteLine("  blur       - Apply blur effect [sigma]");
+        if (command == null)
+        {
+            Console.WriteLine("Usage: ImagoCrafter <command> <input-file> [options]");
+            Console.WriteLine("\nAvailable commands:");
+            Console.WriteLine("  blur       - Apply Gaussian blur effect");
+            Console.WriteLine("\nFor command-specific options, use: ImagoCrafter <command> --help");
+            return;
+        }
+
+        switch (command.ToLower())
+        {
+            case "blur":
+                Console.WriteLine("Usage: ImagoCrafter blur <input-file> [sigma]");
+                Console.WriteLine("\nOptions:");
+                Console.WriteLine("  sigma      - Blur intensity (default: 1.0).");
+                Console.WriteLine("               Example: ImagoCrafter blur image.jpg 2.5");
+                break;
+            default:
+                Console.WriteLine($"Unknown command: {command}");
+                PrintUsage();
+                break;
+        }
     }
 }
