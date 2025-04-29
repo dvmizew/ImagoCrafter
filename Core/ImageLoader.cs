@@ -23,7 +23,7 @@ public class ImageLoader
         imageSharp.Save(filePath);
     }
 
-    private static Image ConvertFromImageSharp(SixLabors.ImageSharp.Image<Rgb24> imageSharp)
+    private static Image ConvertFromImageSharp(Image<Rgb24> imageSharp)
     {
         int width = imageSharp.Width;
         int height = imageSharp.Height;
@@ -45,11 +45,10 @@ public class ImageLoader
 
         return new Image(data, width, height, 3);
     }
-    private static SixLabors.ImageSharp.Image<Rgb24> ConvertToImageSharp(Image image)
+    private static Image<Rgb24> ConvertToImageSharp(Image image)
     {
-        var imageSharp = new SixLabors.ImageSharp.Image<Rgb24>(image.Width, image.Height);
+        var imageSharp = new Image<Rgb24>(image.Width, image.Height);
 
-        // copy pixel data from our linear array format to ImageSharp format
         for (int y = 0; y < image.Height; y++)
         {
             for (int x = 0; x < image.Width; x++)

@@ -14,7 +14,7 @@ public class ConvolutionProcessor : IImageProcessor
 
     public virtual Image Process(Image input)
     {
-        Image output = new Image(input.Width, input.Height, input.Channels);
+        Image output = new(input.Width, input.Height, input.Channels);
         int kernelRadius = _kernel.Size / 2;
 
         for (int y = 0; y < input.Height; y++)

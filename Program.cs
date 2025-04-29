@@ -33,76 +33,71 @@ class Program
         try
         {
             var image = ImageLoader.Load(inputFile);
-            Image? result = null;
-
-            switch (command)
-            {
-                case "blur":
-                    float sigma = 1.0f;
-
-                    if (args.Length > 2)
-                    {
-                        sigma = float.Parse(args[2]);
-                    }
-                    
-                    var blurProcessor = new GaussianBlurProcessor(sigma);
-                    result = blurProcessor.Process(image);
-                    break;
-
-                case "vignette":
-                    float strength = 0.5f;
-                    float radius = 1.0f;
-
-                    if (args.Length > 2)
-                        strength = float.Parse(args[2]);
-                    if (args.Length > 3)
-                        radius = float.Parse(args[3]);
-
-                    var vignetteProcessor = new VignetteProcessor(strength, radius);
-                    result = vignetteProcessor.Process(image);
-                    break;
-
-                case "resize":
-                    if (args.Length < 4)
-                    {
-                        Console.WriteLine("Error: Width and height parameters are required for resize.");
-                        PrintUsage("resize");
-                        return;
-                    }
-                    
-                    if (!int.TryParse(args[2], out int width) || !int.TryParse(args[3], out int height))
-                    {
-                        Console.WriteLine("Error: Width and height must be valid integers.");
-                        return;
-                    }
-                    
-                    if (width <= 0 || height <= 0)
-                    {
-                        Console.WriteLine("Error: Width and height must be positive values.");
-                        return;
-                    }
-
-                    var resizeProcessor = new ResizeProcessor(width, height);
-                    result = resizeProcessor.Process(image);
-                    break;
-
-                default:
-                    Console.WriteLine($"Unknown command: {command}");
-                    PrintUsage();
-                    return;
-            }
-
-            if (result != null)
-            {
-                string outputFile = Path.ChangeExtension(inputFile, ".processed" + Path.GetExtension(inputFile));
-                ImageLoader.Save(result, outputFile);
-                Console.WriteLine($"Image saved to: {outputFile}");
-            }
+            ProcessImage(command, image, args);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error: {ex.Message}");
         }
+    }
+
+    private static void ProcessImage(string command, Image image, string[] args)
+    {
+        Image? result = null;
+
+        switch (command)
+        {
+            case "blur":
+                float sigma = args.Length > 2 ? ParseFloat(args[2], 1.0f) : 1.0f;                    
+                result = new GaussianBlurProcessor(sigma).Process(image);
+                break;
+
+            case "vignette":
+                float strength = args.Length > 2 ? ParseFloat(args[2], 0.5f) : 0.5f;
+                float radius = args.Length > 3 ? ParseFloat(args[3], 1.0f) : 1.0f;
+                result = new VignetteProcessor(strength, radius).Process(image);
+                break;
+
+            case "resize":
+                if (args.Length < 4)
+                {
+                    Console.WriteLine("Error: Width and height parameters are required for resize.");
+                    PrintUsage("resize");
+                    return;
+                }
+                
+                if (!int.TryParse(args[2], out int width) || !int.TryParse(args[3], out int height))
+                {
+                    Console.WriteLine("Error: Width and height must be valid integers.");
+                    return;
+                }
+                
+                if (width <= 0 || height <= 0)
+                {
+                    Console.WriteLine("Error: Width and height must be positive values.");
+                    return;
+                }
+
+                result = new ResizeProcessor(width, height).Process(image);
+                break;
+
+            default:
+                Console.WriteLine($"Unknown command: {command}");
+                PrintUsage();
+                return;
+        }
+
+        if (result != null)
+        {
+            string outputFile = Path.ChangeExtension(args[1], ".processed" + Path.GetExtension(args[1]));
+            ImageLoader.Save(result, outputFile);
+            Console.WriteLine($"Image saved to: {outputFile}");
+        }
+    }
+    
+    private static float ParseFloat(string value, float defaultValue)
+    {
+        return float.TryParse(value, out float result) ? result : defaultValue;
     }
 
     static void PrintUsage(string? command = null)
