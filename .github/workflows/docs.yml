@@ -9,6 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - name: Create Documentation directory
+        run: mkdir -p Documentation
       - name: Compile LaTeX
         uses: xu-cheng/latex-action@v2
         with:
