@@ -1,0 +1,80 @@
+\documentclass[12pt,a4paper]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{listings}
+\geometry{margin=1in}
+
+\title{ImagoCrafter}
+\author{Radu Daniel - Dumitru}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\chapter{Introduction}
+ImagoCrafter is an image processing application built in C# on .NET 8.0. The goal of this project is to deliver a flexible, modular library of filters and processing techniques based on convolution kernels and statistical methods, all accessible via a command-line interface.
+
+\chapter{System Architecture}
+The project is organized into four main modules:
+\begin{itemize}
+  \item \textbf{Core}: Fundamental classes for image representation, loading, and saving.
+  \item \textbf{Processing}: The \texttt{IImageProcessor} interface and its implementations for different filters.
+  \item \textbf{Kernels}: Classes responsible for creating and normalizing convolution kernels.
+  \item \textbf{Program}: The command-line entry point that ties everything together.
+\end{itemize}
+
+\chapter{Modules and Components}
+
+\section{Core}
+In the \texttt{ImagoCrafter.Core} namespace:
+
+\paragraph{Image}
+The \texttt{Image} class serves as a container for pixel data, keeping track of width, height, and the number of channels. It provides methods to read and write individual pixel components (R, G, B) both as bytes (0–255) and normalized floats (0.0–1.0). Variants labeled “Safe” automatically clamp coordinates to valid ranges to prevent out-of-bounds errors.
+
+\paragraph{ImageLoader}
+\texttt{ImageLoader} hides the complexity of the ImageSharp library, loading files into \texttt{Image<Rgb24>} and converting them into a linear byte array for processing. When saving, it performs the reverse conversion, ensuring color integrity and consistent channel order.
+
+\section{Processing}
+
+\paragraph{IImageProcessor}
+This interface defines the contract for all filters: a \texttt{Process} method that transforms an input \texttt{Image} and returns a new one, and a \texttt{Configure} method that accepts dynamic parameters to adjust behavior without recompilation.
+
+\subsection{ConvolutionProcessor}
+Applies any two-dimensional kernel defined by a \texttt{ConvolutionKernel}. For each pixel, it computes a weighted sum over the neighborhood, applies factor and bias adjustments, clamps the result between 0 and 255, and writes it back to the output image.
+
+\subsection{GaussianBlurProcessor}
+Implements a separable Gaussian blur by performing two passes—horizontal and vertical—using a one-dimensional kernel generated from \textit{sigma}. This approach reduces computation while delivering a smooth, uniform blurring effect.
+
+\subsection{VignetteProcessor}
+Darkens image edges based on distance from the center. A configurable \_strength and \_radius control the falloff curve, producing a gradual transition toward darker borders.
+
+\subsection{ResizeProcessor}
+Resizes images using bilinear interpolation. For each target pixel, it maps coordinates back to the source, samples the four surrounding pixels, and interpolates first horizontally, then vertically to avoid aliasing.
+
+\chapter{Convolution Kernels}
+In the \texttt{ImagoCrafter.Processing.Kernels} namespace:
+
+\paragraph{ConvolutionKernel}
+The base class for all matrix-based filters. You can set kernel values directly along with optional factor and bias. An internal \texttt{Normalize} method adjusts weights so the kernel sums to one when needed.
+
+\paragraph{GaussianKernel}
+Inherits from \texttt{ConvolutionKernel} and automatically builds a two-dimensional Gaussian matrix based on \textit{sigma}. After filling each cell using the normal distribution formula, it normalizes the kernel and sets the factor to 1.
+
+\chapter{Command-Line Interface}
+The \texttt{Program} class parses console arguments to identify commands (\texttt{blur}, \texttt{vignette}, \texttt{resize}), reads input images, applies the appropriate processor, and writes output files with a ".processed" suffix. Error handling and usage messages guide the user in case of invalid input.
+
+\paragraph{Usage Patterns}
+\begin{description}
+  \item[blur]  ImagoCrafter blur <input-file> [sigma]
+  \item[vignette]  ImagoCrafter vignette <input-file> [strength] [radius]
+  \item[resize]  ImagoCrafter resize <input-file> <width> <height>
+\end{description}
+
+\chapter{Conclusion}
+ImagoCrafter demonstrates a modular, extensible framework for image processing. Its clean separation of concerns allows developers to introduce new filters and kernels with minimal changes to existing code.
+
+\end{document}

@@ -1,0 +1,20 @@
+name: Build Documentation
+on:
+  push:
+    paths:
+      - 'Documentation/**.tex'
+      - '.github/workflows/docs.yml'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Compile LaTeX
+        uses: xu-cheng/latex-action@v2
+        with:
+          root_file: Documentation/ImagoCrafter.tex
+      - name: Upload PDF
+        uses: actions/upload-artifact@v3
+        with:
+          name: Documentation PDF
+          path: Documentation/ImagoCrafter.pdf
