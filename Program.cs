@@ -75,6 +75,12 @@ class Program
                         Console.WriteLine("Error: Width and height must be valid integers.");
                         return;
                     }
+                    
+                    if (width <= 0 || height <= 0)
+                    {
+                        Console.WriteLine("Error: Width and height must be positive values.");
+                        return;
+                    }
 
                     var resizeProcessor = new ResizeProcessor(width, height);
                     result = resizeProcessor.Process(image);

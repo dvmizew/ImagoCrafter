@@ -16,6 +16,12 @@ public class ResizeProcessor : IImageProcessor
     public Image Process(Image input)
     {
         var output = new Image(_targetWidth, _targetHeight, input.Channels);
+        
+        if (input.Width <= 0 || input.Height <= 0 || _targetWidth <= 0 || _targetHeight <= 0)
+        {
+            return output; // return empty image if input is invalid
+        }
+        
         float xRatio = input.Width / (float)_targetWidth;
         float yRatio = input.Height / (float)_targetHeight;
 

@@ -32,11 +32,11 @@ public class ConvolutionProcessor : IImageProcessor
                             int px = Math.Clamp(x + kx, 0, input.Width - 1);
                             int py = Math.Clamp(y + ky, 0, input.Height - 1);
                             float kernelValue = _kernel.Matrix[ky + kernelRadius, kx + kernelRadius];
-                            sum += input.GetPixelComponent(px, py, c) * kernelValue;
+                            sum += input.GetPixelComponentF(px, py, c) * kernelValue;
                         }
                     }
 
-                    output.SetPixelComponent(x, y, c, (byte)Math.Clamp(sum * _kernel.Factor + _kernel.Bias, 0, 255));
+                    output.SetPixelComponentF(x, y, c, sum * _kernel.Factor + _kernel.Bias);
                 }
             }
         }
