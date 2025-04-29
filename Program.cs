@@ -49,6 +49,19 @@ class Program
                     result = blurProcessor.Process(image);
                     break;
 
+                case "vignette":
+                    float strength = 0.5f;
+                    float radius = 1.0f;
+
+                    if (args.Length > 2)
+                        strength = float.Parse(args[2]);
+                    if (args.Length > 3)
+                        radius = float.Parse(args[3]);
+
+                    var vignetteProcessor = new VignetteProcessor(strength, radius);
+                    result = vignetteProcessor.Process(image);
+                    break;
+
                 case "resize":
                     if (args.Length < 4)
                     {
@@ -93,6 +106,7 @@ class Program
             Console.WriteLine("Usage: ImagoCrafter <command> <input-file> [options]");
             Console.WriteLine("\nAvailable commands:");
             Console.WriteLine("  blur       - Apply Gaussian blur effect");
+            Console.WriteLine("  vignette   - Apply vignette (edge darkening) effect");
             Console.WriteLine("  resize     - Resize image to specified dimensions");
             Console.WriteLine("\nFor command-specific options, use: ImagoCrafter <command> --help");
             return;
@@ -105,6 +119,13 @@ class Program
                 Console.WriteLine("\nOptions:");
                 Console.WriteLine("  sigma      - Blur intensity (default: 1.0).");
                 Console.WriteLine("               Example: ImagoCrafter blur image.jpg 2.5");
+                break;
+            case "vignette":
+                Console.WriteLine("Usage: ImagoCrafter vignette <input-file> [strength] [radius]");
+                Console.WriteLine("\nOptions:");
+                Console.WriteLine("  strength   - Vignette strength from 0.0 to 1.0 (default: 0.5)");
+                Console.WriteLine("  radius     - Vignette radius, larger values affect more of the image (default: 1.0)");
+                Console.WriteLine("               Example: ImagoCrafter vignette image.jpg 0.7 1.2");
                 break;
             case "resize":
                 Console.WriteLine("Usage: ImagoCrafter resize <input-file> <width> <height>");
