@@ -33,10 +33,61 @@ The project is organized into four main modules:
 In the \texttt{ImagoCrafter.Core} namespace:
 
 \paragraph{Image}
-The \texttt{Image} class serves as a container for pixel data, keeping track of width, height, and the number of channels. It provides methods to read and write individual pixel components (R, G, B) both as bytes (0–255) and normalized floats (0.0–1.0). Variants labeled “Safe” automatically clamp coordinates to valid ranges to prevent out-of-bounds errors.
+The \texttt{Image} class serves as a container for pixel data, keeping track of width, height, and the number of channels. It provides methods to read and write individual pixel components (R, G, B) both as bytes (0–255) and normalized floats (0.0–1.0).
+
+Key algorithms:
+\begin{enumerate}
+    \item Pixel access using linear memory layout:
+    \[ index = (y \cdot width + x) \cdot channels + channel \]
+    
+    \item Safe coordinate handling:
+    \[ x_{safe} = clamp(x, 0, width-1) \]
+    \[ y_{safe} = clamp(y, 0, height-1) \]
+    
+    \item Color space normalization:
+    \[ value_{float} = value_{byte} / 255.0 \]
+    \[ value_{byte} = value_{float} \cdot 255.0 \]
+\end{enumerate}
+
+The linear memory layout ensures efficient access while the safe variants prevent buffer overflows.
 
 \paragraph{ImageLoader}
-\texttt{ImageLoader} hides the complexity of the ImageSharp library, loading files into \texttt{Image<Rgb24>} and converting them into a linear byte array for processing. When saving, it performs the reverse conversion, ensuring color integrity and consistent channel order.
+\texttt{ImageLoader} hides the complexity of the ImageSharp library, loading files into \texttt{Image<Rgb24>} and converting them into a linear byte array for processing.
+
+Key algorithms:
+\begin{enumerate}
+    \item Image loading:
+    \begin{enumerate}
+        \item Load image using ImageSharp
+        \item Allocate linear byte array of size $width \cdot height \cdot channels$
+        \item Copy RGB components using:
+        \[ destIndex = (y \cdot width + x) \cdot 3 \]
+    \end{enumerate}
+    
+    \item Image saving:
+    \begin{enumerate}
+        \item Create ImageSharp RGB24 image
+        \item Copy components using channel mapping:
+        \[ r = data[srcIndex] \]
+        \[ g = channels \geq 2 ? data[srcIndex + 1] : r \]
+        \[ b = channels \geq 3 ? data[srcIndex + 2] : r \]
+    \end{enumerate}
+\end{enumerate}
+
+This approach ensures color integrity and consistent channel order.
+
+\paragraph{Edge Handling}
+When accessing pixels near image boundaries, the following algorithms are used:
+\begin{enumerate}
+    \item Clamp-to-edge:
+    \[ x = max(0, min(x, width-1)) \]
+    \[ y = max(0, min(y, height-1)) \]
+    
+    \item Edge pixel replication for convolution:
+    \[ pixel_{safe}(x,y) = pixel(clamp(x,0,w-1), clamp(y,0,h-1)) \]
+\end{enumerate}
+
+This ensures that operations near image edges produce valid results without introducing artifacts.
 
 \section{Processing}
 
@@ -44,25 +95,97 @@ The \texttt{Image} class serves as a container for pixel data, keeping track of 
 This interface defines the contract for all filters: a \texttt{Process} method that transforms an input \texttt{Image} and returns a new one, and a \texttt{Configure} method that accepts dynamic parameters to adjust behavior without recompilation.
 
 \subsection{ConvolutionProcessor}
-Applies any two-dimensional kernel defined by a \texttt{ConvolutionKernel}. For each pixel, it computes a weighted sum over the neighborhood, applies factor and bias adjustments, clamps the result between 0 and 255, and writes it back to the output image.
+Applies any two-dimensional kernel defined by a \texttt{ConvolutionKernel}. For each pixel:
+\[ output(x,y) = \sum_{i=-r}^r \sum_{j=-r}^r input(x+i,y+j) \cdot kernel(i+r,j+r) \cdot factor + bias \]
+
+where $r$ is the kernel radius. The process includes:
+\begin{enumerate}
+    \item Edge handling using clamp-to-edge
+    \item Optional kernel normalization ensuring $\sum kernel = 1$
+    \item Factor and bias adjustments for contrast control
+\end{enumerate}
 
 \subsection{GaussianBlurProcessor}
-Implements a separable Gaussian blur by performing two passes—horizontal and vertical—using a one-dimensional kernel generated from \textit{sigma}. This approach reduces computation while delivering a smooth, uniform blurring effect.
+Implements a separable Gaussian blur by performing two passes—horizontal and vertical—using a one-dimensional kernel generated from \textit{sigma}. This approach reduces complexity from $O(r^2)$ to $O(2r)$ where $r$ is the kernel radius.
+
+The 1D Gaussian kernel is generated as:
+\[ G(x) = \frac{1}{\sqrt{2\pi\sigma^2}} e^{-\frac{x^2}{2\sigma^2}} \]
+
+The kernel size is determined by $\sigma$:
+\[ size = max(3, \lfloor 6\sigma \rfloor | 1) \]
+
+The process applies two passes:
+\begin{enumerate}
+    \item Horizontal blur using the 1D kernel
+    \item Vertical blur on the result of step 1
+\end{enumerate}
 
 \subsection{VignetteProcessor}
-Darkens image edges based on distance from the center. A configurable \_strength and \_radius control the falloff curve, producing a gradual transition toward darker borders.
+Darkens image edges based on distance from the center using a radial darkening effect:
+\begin{enumerate}
+    \item Calculate normalized distance from center:
+    \[ dx = \frac{x - centerX}{centerX} \]
+    \[ dy = \frac{y - centerY}{centerY} \]
+    \[ distance = \sqrt{dx^2 + dy^2} \]
+    
+    \item Apply falloff function:
+    \[ vignette = 1 - min(1, \frac{distance}{radius}) \]
+    \[ vignette = 1 - strength \cdot (1 - vignette^2) \]
+    
+    \item Scale pixel values:
+    \[ pixel_{out} = pixel_{in} \cdot vignette \]
+\end{enumerate}
 
 \subsection{ResizeProcessor}
-Resizes images using bilinear interpolation. For each target pixel, it maps coordinates back to the source, samples the four surrounding pixels, and interpolates first horizontally, then vertically to avoid aliasing.
+Resizes images using bilinear interpolation. For each target pixel $(x, y)$ in the output image, the algorithm:
+
+\begin{enumerate}
+    \item Maps target coordinates to source coordinates:
+    \[ srcX = x \cdot \frac{width_{src}}{width_{target}} \]
+    \[ srcY = y \cdot \frac{height_{src}}{height_{target}} \]
+    
+    \item Finds the four surrounding pixels $(x_1, y_1)$, $(x_2, y_1)$, $(x_1, y_2)$, $(x_2, y_2)$
+    \item Calculates interpolation weights:
+    \[ xWeight = srcX - \lfloor srcX \rfloor \]
+    \[ yWeight = srcY - \lfloor srcY \rfloor \]
+    
+    \item Interpolates horizontally for both rows:
+    \[ row1 = p_{11}(1-xWeight) + p_{21}xWeight \]
+    \[ row2 = p_{12}(1-xWeight) + p_{22}xWeight \]
+    
+    \item Interpolates vertically for final value:
+    \[ pixel = row1(1-yWeight) + row2 \cdot yWeight \]
+\end{enumerate}
+
+This bilinear interpolation approach ensures smooth scaling while preventing aliasing artifacts.
 
 \chapter{Convolution Kernels}
 In the \texttt{ImagoCrafter.Processing.Kernels} namespace:
 
 \paragraph{ConvolutionKernel}
-The base class for all matrix-based filters. You can set kernel values directly along with optional factor and bias. An internal \texttt{Normalize} method adjusts weights so the kernel sums to one when needed.
+The base class for all matrix-based filters. Key algorithms:
+\begin{enumerate}
+    \item Kernel normalization:
+    \[ sum = \sum_{i=0}^{size-1} \sum_{j=0}^{size-1} kernel[i,j] \]
+    \[ kernel_{normalized}[i,j] = \frac{kernel[i,j]}{sum} \]
+    
+    \item Value computation:
+    \[ value = value \cdot factor + bias \]
+\end{enumerate}
+
+The normalization ensures that the kernel preserves the image's overall brightness when $\sum kernel = 1$.
 
 \paragraph{GaussianKernel}
-Inherits from \texttt{ConvolutionKernel} and automatically builds a two-dimensional Gaussian matrix based on \textit{sigma}. After filling each cell using the normal distribution formula, it normalizes the kernel and sets the factor to 1.
+Inherits from \texttt{ConvolutionKernel} and automatically builds a two-dimensional Gaussian matrix. Key algorithms:
+\begin{enumerate}
+    \item Generate kernel values:
+    \[ G(x,y) = \frac{1}{2\pi\sigma^2} e^{-\frac{x^2 + y^2}{2\sigma^2}} \]
+    
+    \item Normalize kernel:
+    \[ kernel_{normalized}[i,j] = \frac{kernel[i,j]}{\sum_{i,j} kernel[i,j]} \]
+\end{enumerate}
+
+After filling each cell using the normal distribution formula, it normalizes the kernel and sets the factor to 1.
 
 \chapter{Command-Line Interface}
 The \texttt{Program} class parses console arguments to identify commands (\texttt{blur}, \texttt{vignette}, \texttt{resize}), reads input images, applies the appropriate processor, and writes output files with a ".processed" suffix. Error handling and usage messages guide the user in case of invalid input.
