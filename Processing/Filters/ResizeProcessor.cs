@@ -1,4 +1,6 @@
 using ImagoCrafter.Core;
+using ImagoCrafter.Processing.Kernels;
+using ImagoCrafter.Processing.Convolution;
 
 namespace ImagoCrafter.Processing.Filters;
 
@@ -6,6 +8,7 @@ public class ResizeProcessor : IImageProcessor
 {
     private int _targetWidth;
     private int _targetHeight;
+    private float _sharpenStrength = 0.5f;
 
     public ResizeProcessor(int width, int height)
     {
@@ -21,6 +24,11 @@ public class ResizeProcessor : IImageProcessor
         {
             return output; // return empty image if input is invalid
         }
+
+        float widthRatio = _targetWidth / (float)input.Width;
+        float heightRatio = _targetHeight / (float)input.Height;
+        float upscaleRatio = Math.Max(widthRatio, heightRatio);
+        bool isUpscaling = upscaleRatio > 1.0f;
 
         var xCoords = new int[_targetWidth][];
         var xWeights = new float[_targetWidth];
@@ -79,6 +87,17 @@ public class ResizeProcessor : IImageProcessor
             }
         });
 
+        // Apply adaptive sharpening if upscaling
+        if (isUpscaling)
+        {
+            float adaptiveStrength = _sharpenStrength * (upscaleRatio - 1.0f);
+            float adaptiveRadius = 0.5f + (upscaleRatio - 1.0f) * 0.5f; // Increase radius with scale
+            float adaptiveThreshold = 0.01f; // Small threshold to prevent noise enhancement
+            
+            var sharpenProcessor = new UnsharpMaskProcessor(adaptiveStrength, adaptiveRadius, adaptiveThreshold);
+            output = sharpenProcessor.Process(output);
+        }
+
         return output;
     }
 
@@ -88,5 +107,7 @@ public class ResizeProcessor : IImageProcessor
             _targetWidth = width;
         if (parameters.TryGetValue("height", out var h) && h is int height)
             _targetHeight = height;
+        if (parameters.TryGetValue("sharpenStrength", out var s) && s is float strength)
+            _sharpenStrength = strength;
     }
 }

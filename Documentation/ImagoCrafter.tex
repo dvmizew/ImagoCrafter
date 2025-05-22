@@ -5,6 +5,9 @@
 \usepackage{geometry}
 \usepackage{hyperref}
 \usepackage{listings}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
 \geometry{margin=1in}
 
 \title{ImagoCrafter}
@@ -13,7 +16,10 @@
 
 \begin{document}
 \maketitle
+
+\clearpage
 \tableofcontents
+\clearpage
 
 \chapter{Introduction}
 ImagoCrafter is an image processing application built in C\# on .NET 8.0. The goal of this project is to deliver a flexible, modular library of filters and processing techniques based on convolution kernels and statistical methods, all accessible via a command-line interface.
@@ -94,6 +100,8 @@ This ensures that operations near image edges produce valid results without intr
 \paragraph{IImageProcessor}
 This interface defines the contract for all filters: a \texttt{Process} method that transforms an input \texttt{Image} and returns a new one, and a \texttt{Configure} method that accepts dynamic parameters to adjust behavior without recompilation.
 
+\section{Filters}
+
 \subsection{ConvolutionProcessor}
 Applies any two-dimensional kernel defined by a \texttt{ConvolutionKernel}. For each pixel:
 \[ output(x,y) = \sum_{i=-r}^r \sum_{j=-r}^r input(x+i,y+j) \cdot kernel(i+r,j+r) \cdot factor + bias \]
@@ -157,10 +165,51 @@ Resizes images using bilinear interpolation. For each target pixel $(x, y)$ in t
     \[ pixel = row1(1-yWeight) + row2 \cdot yWeight \]
 \end{enumerate}
 
-This bilinear interpolation approach ensures smooth scaling while preventing aliasing artifacts.
+For upscaling operations, adaptive sharpening is automatically applied:
+\begin{enumerate}
+    \item Calculate upscale ratio:
+    \[ ratio = max(\frac{width_{target}}{width_{source}}, \frac{height_{target}}{height_{source}}) \]
+    
+    \item Apply adaptive sharpening strength:
+    \[ strength_{adaptive} = strength_{base} \cdot (ratio - 1.0) \]
+    
+    Where $ratio > 1.0$ indicates upscaling, and the strength increases linearly with the upscale factor.
+    For example:
+    \begin{itemize}
+        \item 200% resize (ratio = 2.0) applies $strength_{base} \cdot 1.0$
+        \item 300% resize (ratio = 3.0) applies $strength_{base} \cdot 2.0$
+    \end{itemize}
+\end{enumerate}
 
-\chapter{Convolution Kernels}
-In the \texttt{ImagoCrafter.Processing.Kernels} namespace:
+This adaptive sharpening compensates for the natural softening that occurs during upscaling, with stronger sharpening applied for larger scale factors.
+
+\subsection{UnsharpMaskProcessor}
+Implements high-quality image sharpening using the unsharp masking technique:
+\begin{enumerate}
+    \item Create a Gaussian blurred version of the original image with radius $\sigma$:
+    \[ blur(x,y,c) = G_\sigma \ast original(x,y,c) \]
+    where $G_\sigma$ is the Gaussian kernel and $\ast$ denotes convolution
+
+    \item Calculate edge mask by subtracting blur from original:
+    \[ mask(x,y,c) = original(x,y,c) - blur(x,y,c) \]
+
+    \item Apply adaptive sharpening with threshold:
+    \[ output(x,y,c) = \begin{cases} 
+        original(x,y,c) + mask(x,y,c) \cdot strength & \text{if } |mask(x,y,c)| > threshold \\[2pt]
+        original(x,y,c) & \text{otherwise}
+    \end{cases} \]
+
+    \item For upscaling operations, parameters scale with ratio:
+    \[ strength = strength_{base} \cdot (ratio_{scale} - 1.0) \]
+    \[ radius = 0.5 + (ratio_{scale} - 1.0) \cdot 0.5 \]
+    \[ threshold = 0.01 \]
+
+    where $ratio_{scale}$ is the upscaling factor and $threshold$ prevents noise amplification.
+\end{enumerate}
+
+The threshold-based masking ensures that only significant edges are enhanced while noise and low-contrast details remain unchanged. The adaptive radius ensures appropriate detail enhancement for different scaling factors.
+
+\section{Kernels}
 
 \paragraph{ConvolutionKernel}
 The base class for all matrix-based filters. Key algorithms:
@@ -186,6 +235,32 @@ Inherits from \texttt{ConvolutionKernel} and automatically builds a two-dimensio
 \end{enumerate}
 
 After filling each cell using the normal distribution formula, it normalizes the kernel and sets the factor to 1.
+
+\paragraph{SharpenKernel}
+Implements advanced image sharpening using a high-pass filtering approach:
+\begin{enumerate}
+    \item High-pass filter for edge detection:
+    \[ K_{hp} = \begin{pmatrix} 
+    -1 & -1 & -1 \\
+    -1 & 8 & -1 \\
+    -1 & -1 & -1
+    \end{pmatrix} \]
+    
+    \item Combine with identity matrix for controllable sharpening:
+    \[ K_{sharp} = I + strength \cdot \frac{K_{hp}}{8} \]
+    where $I$ is the identity matrix and $strength$ controls sharpening intensity
+    
+    \item For upscaling operations, adaptive strength calculation:
+    \[ strength_{final} = strength_{base} \cdot (ratio_{scale} - 1.0) \]
+    \[ ratio_{scale} = \max(\frac{width_{target}}{width_{source}}, \frac{height_{target}}{height_{source}}) \]
+    
+    \item Final kernel normalization to preserve brightness:
+    \[ sum = \sum_{i,j \neq center} kernel[i,j] \]
+    \[ kernel[center] = 1.0 - sum \]
+    \[ factor = 1.05 \text{ (brightness boost)} \]
+\end{enumerate}
+
+The high-pass filter detects edges by computing the Laplacian of the image. The normalized kernel ($\frac{K_{hp}}{8}$) ensures balanced enhancement, while the identity matrix preserves original image content. The brightness boost factor compensates for potential darkening caused by edge enhancement.
 
 \chapter{Command-Line Interface}
 The \texttt{Program} class parses console arguments to identify commands (\texttt{blur}, \texttt{vignette}, \texttt{resize}), reads input images, applies the appropriate processor, and writes output files with a ".processed" suffix. Error handling and usage messages guide the user in case of invalid input.

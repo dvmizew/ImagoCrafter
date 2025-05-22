@@ -43,7 +43,7 @@ class Program
 
     private static void ProcessImage(string command, Image image, string[] args)
     {
-        Image? result = null;
+        Image? result;
 
         switch (command)
         {
@@ -59,23 +59,62 @@ class Program
                 break;
 
             case "resize":
-                if (args.Length < 4)
+                if (args.Length < 3)
                 {
-                    Console.WriteLine("Error: Width and height parameters are required for resize.");
+                    Console.WriteLine("Error: Either percentage or width/height parameters are required for resize.");
                     PrintUsage("resize");
                     return;
                 }
+
+                int width, height;
                 
-                if (!int.TryParse(args[2], out int width) || !int.TryParse(args[3], out int height))
+                // percentage
+                if (args[2].EndsWith("%"))
                 {
-                    Console.WriteLine("Error: Width and height must be valid integers.");
-                    return;
+                    if (args.Length != 3)
+                    {
+                        Console.WriteLine("Error: When using percentage, provide only one value.");
+                        PrintUsage("resize");
+                        return;
+                    }
+
+                    string percentStr = args[2].TrimEnd('%');
+                    if (!float.TryParse(percentStr, out float percent))
+                    {
+                        Console.WriteLine("Error: Invalid percentage value.");
+                        return;
+                    }
+
+                    if (percent <= 0)
+                    {
+                        Console.WriteLine("Error: Percentage must be positive.");
+                        return;
+                    }
+
+                    width = (int)(image.Width * (percent / 100));
+                    height = (int)(image.Height * (percent / 100));
                 }
-                
-                if (width <= 0 || height <= 0)
+                else
                 {
-                    Console.WriteLine("Error: Width and height must be positive values.");
-                    return;
+                    // absolute dimensions logic
+                    if (args.Length < 4)
+                    {
+                        Console.WriteLine("Error: Width and height parameters are required for absolute resize.");
+                        PrintUsage("resize");
+                        return;
+                    }
+
+                    if (!int.TryParse(args[2], out width) || !int.TryParse(args[3], out height))
+                    {
+                        Console.WriteLine("Error: Width and height must be valid integers.");
+                        return;
+                    }
+
+                    if (width <= 0 || height <= 0)
+                    {
+                        Console.WriteLine("Error: Width and height must be positive values.");
+                        return;
+                    }
                 }
 
                 result = new ResizeProcessor(width, height).Process(image);
@@ -108,7 +147,7 @@ class Program
             Console.WriteLine("\nAvailable commands:");
             Console.WriteLine("  blur       - Apply Gaussian blur effect");
             Console.WriteLine("  vignette   - Apply vignette (edge darkening) effect");
-            Console.WriteLine("  resize     - Resize image to specified dimensions");
+            Console.WriteLine("  resize     - Resize image to specified dimensions or percentage");
             Console.WriteLine("\nFor command-specific options, use: ImagoCrafter <command> --help");
             return;
         }
@@ -130,10 +169,13 @@ class Program
                 break;
             case "resize":
                 Console.WriteLine("Usage: ImagoCrafter resize <input-file> <width> <height>");
+                Console.WriteLine("       ImagoCrafter resize <input-file> <percentage>%");
                 Console.WriteLine("\nParameters:");
                 Console.WriteLine("  width       - Target width in pixels");
                 Console.WriteLine("  height      - Target height in pixels");
+                Console.WriteLine("  percentage  - Resize image by percentage (e.g., 50%)");
                 Console.WriteLine("               Example: ImagoCrafter resize image.jpg 800 600");
+                Console.WriteLine("               Example: ImagoCrafter resize image.jpg 50%");
                 break;
             default:
                 Console.WriteLine($"Unknown command: {command}");
