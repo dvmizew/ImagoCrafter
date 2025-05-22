@@ -12,45 +12,68 @@ public class ResizeProcessor : IImageProcessor
         _targetWidth = width;
         _targetHeight = height;
     }
-
+    
     public Image Process(Image input)
     {
         var output = new Image(_targetWidth, _targetHeight, input.Channels);
-        
+
         if (input.Width <= 0 || input.Height <= 0 || _targetWidth <= 0 || _targetHeight <= 0)
         {
             return output; // return empty image if input is invalid
         }
-        
+
+        var xCoords = new int[_targetWidth][];
+        var xWeights = new float[_targetWidth];
+        var yCoords = new int[_targetHeight][];
+        var yWeights = new float[_targetHeight];
+
         float xRatio = input.Width / (float)_targetWidth;
         float yRatio = input.Height / (float)_targetHeight;
 
-        Parallel.For(0, _targetHeight, y =>
+        for (int x = 0; x < _targetWidth; x++)
         {
-            for (int x = 0; x < _targetWidth; x++)
+            float srcX = x * xRatio;
+            int x1 = (int)srcX;
+            int x2 = Math.Min(x1 + 1, input.Width - 1);
+            xCoords[x] = [x1, x2];
+            xWeights[x] = srcX - x1;
+        }
+
+        for (int y = 0; y < _targetHeight; y++)
+        {
+            float srcY = y * yRatio;
+            int y1 = (int)srcY;
+            int y2 = Math.Min(y1 + 1, input.Height - 1);
+            yCoords[y] = [y1, y2];
+            yWeights[y] = srcY - y1;
+        }
+
+        Parallel.For(0, input.Channels, c =>
+        {
+            for (int y = 0; y < _targetHeight; y++)
             {
-                float srcX = x * xRatio;
-                float srcY = y * yRatio;
-                
-                int x1 = (int)srcX;
-                int y1 = (int)srcY;
-                int x2 = Math.Min(x1 + 1, input.Width - 1);
-                int y2 = Math.Min(y1 + 1, input.Height - 1);
-                
-                float xDiff = srcX - x1;
-                float yDiff = srcY - y1;
+                int y1 = yCoords[y][0];
+                int y2 = yCoords[y][1];
+                float yWeight = yWeights[y];
 
-                for (int c = 0; c < input.Channels; c++)
+                float[] row1 = new float[_targetWidth];
+                float[] row2 = new float[_targetWidth];
+
+                for (int x = 0; x < _targetWidth; x++)
                 {
-                    float topLeft = input.GetPixelComponentF(x1, y1, c);
-                    float topRight = input.GetPixelComponentF(x2, y1, c);
-                    float bottomLeft = input.GetPixelComponentF(x1, y2, c);
-                    float bottomRight = input.GetPixelComponentF(x2, y2, c);
+                    int x1 = xCoords[x][0];
+                    int x2 = xCoords[x][1];
+                    float xWeight = xWeights[x];
 
-                    float top = topLeft + (topRight - topLeft) * xDiff;
-                    float bottom = bottomLeft + (bottomRight - bottomLeft) * xDiff;
-                    float value = top + (bottom - top) * yDiff;
+                    row1[x] = input.GetPixelComponentF(x1, y1, c) * (1 - xWeight) +
+                             input.GetPixelComponentF(x2, y1, c) * xWeight;
+                    row2[x] = input.GetPixelComponentF(x1, y2, c) * (1 - xWeight) +
+                             input.GetPixelComponentF(x2, y2, c) * xWeight;
+                }
 
+                for (int x = 0; x < _targetWidth; x++)
+                {
+                    float value = row1[x] * (1 - yWeight) + row2[x] * yWeight;
                     output.SetPixelComponentF(x, y, c, value);
                 }
             }
