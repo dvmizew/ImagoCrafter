@@ -11,3 +11,9 @@ obj/
 /wwwroot/node_modules
 
 # End of https://www.toptal.com/developers/gitignore/api/dotnetcore
+
+# Latex generated files
+/Documentation/*.aux
+/Documentation/*.out
+/Documentation/*.toc
+/Documentation/*.log
