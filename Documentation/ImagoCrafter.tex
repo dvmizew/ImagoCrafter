@@ -263,14 +263,28 @@ Implements advanced image sharpening using a high-pass filtering approach:
 The high-pass filter detects edges by computing the Laplacian of the image. The normalized kernel ($\frac{K_{hp}}{8}$) ensures balanced enhancement, while the identity matrix preserves original image content. The brightness boost factor compensates for potential darkening caused by edge enhancement.
 
 \chapter{Command-Line Interface}
-The \texttt{Program} class parses console arguments to identify commands (\texttt{blur}, \texttt{vignette}, \texttt{resize}), reads input images, applies the appropriate processor, and writes output files with a ".processed" suffix. Error handling and usage messages guide the user in case of invalid input.
+The \texttt{Program} class parses console arguments to identify commands, reads input images, applies the appropriate processor, and writes output files with a ".processed" suffix. Error handling and usage messages guide the user in case of invalid input.
+
+The application now supports five main processing modes:
 
 \paragraph{Usage Patterns}
 \begin{description}
   \item[blur]  ImagoCrafter blur <input-file> [sigma]
   \item[vignette]  ImagoCrafter vignette <input-file> [strength] [radius]
   \item[resize]  ImagoCrafter resize <input-file> <width> <height>
+  \item[]      ImagoCrafter resize <input-file> <percentage>\%
+  \item[sharpen]  ImagoCrafter sharpen <input-file> [strength] [radius] [threshold]
 \end{description}
+
+\paragraph{Command Details}
+\begin{itemize}
+    \item \textbf{blur}: Applies Gaussian blur with configurable sigma (blur intensity)
+    \item \textbf{vignette}: Creates edge darkening effect with adjustable strength and radius
+    \item \textbf{resize}: Supports both absolute dimensions and percentage-based scaling
+    \item \textbf{sharpen}: High-quality unsharp mask sharpening with threshold control
+\end{itemize}
+
+Each command provides detailed help via the \texttt{--help} flag, ensuring users can easily discover available parameters and their effects.
 
 \chapter{Conclusion}
 ImagoCrafter demonstrates a modular, extensible framework for image processing. Its clean separation of concerns allows developers to introduce new filters and kernels with minimal changes to existing code.

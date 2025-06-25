@@ -120,6 +120,13 @@ class Program
                 result = new ResizeProcessor(width, height).Process(image);
                 break;
 
+            case "sharpen":
+                float sharpStrength = args.Length > 2 ? ParseFloat(args[2], 0.5f) : 0.5f;
+                float sharpRadius = args.Length > 3 ? ParseFloat(args[3], 1.0f) : 1.0f;
+                float threshold = args.Length > 4 ? ParseFloat(args[4], 0.0f) : 0.0f;
+                result = new UnsharpMaskProcessor(sharpStrength, sharpRadius, threshold).Process(image);
+                break;
+
             default:
                 Console.WriteLine($"Unknown command: {command}");
                 PrintUsage();
@@ -148,6 +155,7 @@ class Program
             Console.WriteLine("  blur       - Apply Gaussian blur effect");
             Console.WriteLine("  vignette   - Apply vignette (edge darkening) effect");
             Console.WriteLine("  resize     - Resize image to specified dimensions or percentage");
+            Console.WriteLine("  sharpen    - Apply unsharp mask sharpening effect");
             Console.WriteLine("\nFor command-specific options, use: ImagoCrafter <command> --help");
             return;
         }
@@ -176,6 +184,14 @@ class Program
                 Console.WriteLine("  percentage  - Resize image by percentage (e.g., 50%)");
                 Console.WriteLine("               Example: ImagoCrafter resize image.jpg 800 600");
                 Console.WriteLine("               Example: ImagoCrafter resize image.jpg 50%");
+                break;
+            case "sharpen":
+                Console.WriteLine("Usage: ImagoCrafter sharpen <input-file> [strength] [radius] [threshold]");
+                Console.WriteLine("\nOptions:");
+                Console.WriteLine("  strength    - Sharpening strength from 0.0 to 2.0 (default: 0.5)");
+                Console.WriteLine("  radius      - Blur radius for unsharp mask (default: 1.0)");
+                Console.WriteLine("  threshold   - Threshold to prevent noise amplification (default: 0.0)");
+                Console.WriteLine("               Example: ImagoCrafter sharpen image.jpg 1.0 1.5 0.01");
                 break;
             default:
                 Console.WriteLine($"Unknown command: {command}");
