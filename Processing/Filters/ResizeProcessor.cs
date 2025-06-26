@@ -10,25 +10,30 @@ public class ResizeProcessor(int width, int height) : IImageProcessor
 
     public Image Process(Image input)
     {
-        var output = new Image(_targetWidth, _targetHeight, input.Channels);
+        ArgumentNullException.ThrowIfNull(input);
 
-        if (input.Width <= 0 || input.Height <= 0 || _targetWidth <= 0 || _targetHeight <= 0)
+        if (input.Width <= 0 || input.Height <= 0)
+            throw new ArgumentException($"Invalid input image dimensions: {input.Width}x{input.Height}");
+
+        if (_targetWidth <= 0 || _targetHeight <= 0)
+            throw new InvalidOperationException($"Invalid target dimensions: {_targetWidth}x{_targetHeight}");
+
+        try
         {
-            return output; // return empty image if input is invalid
-        }
+            var output = new Image(_targetWidth, _targetHeight, input.Channels);
 
-        float widthRatio = _targetWidth / (float)input.Width;
-        float heightRatio = _targetHeight / (float)input.Height;
-        float upscaleRatio = Math.Max(widthRatio, heightRatio);
-        bool isUpscaling = upscaleRatio > 1.0f; // if upscaling we use unsharp mask
+            float widthRatio = _targetWidth / (float)input.Width;
+            float heightRatio = _targetHeight / (float)input.Height;
+            float upscaleRatio = Math.Max(widthRatio, heightRatio);
+            bool isUpscaling = upscaleRatio > 1.0f; // if upscaling we use unsharp mask
 
-        var xCoords = new int[_targetWidth][];
-        var xWeights = new float[_targetWidth];
-        var yCoords = new int[_targetHeight][];
-        var yWeights = new float[_targetHeight];
+            var xCoords = new int[_targetWidth][];
+            var xWeights = new float[_targetWidth];
+            var yCoords = new int[_targetHeight][];
+            var yWeights = new float[_targetHeight];
 
-        float xRatio = input.Width / (float)_targetWidth;
-        float yRatio = input.Height / (float)_targetHeight;
+            float xRatio = input.Width / (float)_targetWidth;
+            float yRatio = input.Height / (float)_targetHeight;
 
         for (int x = 0; x < _targetWidth; x++)
         {
@@ -91,15 +96,34 @@ public class ResizeProcessor(int width, int height) : IImageProcessor
         }
 
         return output;
+        }
+        catch (OutOfMemoryException ex)
+        {
+            throw new InvalidOperationException($"Insufficient memory to resize image to {_targetWidth}x{_targetHeight}", ex);
+        }
     }
 
     public void Configure(Dictionary<string, object> parameters)
     {
+        ArgumentNullException.ThrowIfNull(parameters);
+
         if (parameters.TryGetValue("width", out var w) && w is int width)
+        {
+            if (width <= 0)
+                throw new ArgumentOutOfRangeException(nameof(width), "Width must be positive");
             _targetWidth = width;
+        }
         if (parameters.TryGetValue("height", out var h) && h is int height)
+        {
+            if (height <= 0)
+                throw new ArgumentOutOfRangeException(nameof(height), "Height must be positive");
             _targetHeight = height;
+        }
         if (parameters.TryGetValue("sharpenStrength", out var s) && s is float strength)
+        {
+            if (strength < 0 || strength > 10)
+                throw new ArgumentOutOfRangeException(nameof(strength), "Sharpen strength must be between 0 and 10");
             _sharpenStrength = strength;
+        }
     }
 }

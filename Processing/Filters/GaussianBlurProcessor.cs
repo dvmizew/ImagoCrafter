@@ -37,16 +37,31 @@ public class GaussianBlurProcessor : IImageProcessor
 
     public Image Process(Image input)
     {
-        var temp = new Image(input.Width, input.Height, input.Channels);
-        var output = new Image(input.Width, input.Height, input.Channels);
+        ArgumentNullException.ThrowIfNull(input);
 
-        // horizontal blur
-        ApplyKernel(input, temp, true);
-        
-        // vertical blur
-        ApplyKernel(temp, output, false);
+        if (input.Width <= 0 || input.Height <= 0)
+            throw new ArgumentException($"Invalid input image dimensions: {input.Width}x{input.Height}");
 
-        return output;
+        if (_kernel1D == null || _kernel1D.Length == 0)
+            throw new InvalidOperationException("Gaussian kernel not initialized. Call Configure() first.");
+
+        try
+        {
+            var temp = new Image(input.Width, input.Height, input.Channels);
+            var output = new Image(input.Width, input.Height, input.Channels);
+
+            // horizontal blur
+            ApplyKernel(input, temp, true);
+            
+            // vertical blur
+            ApplyKernel(temp, output, false);
+
+            return output;
+        }
+        catch (OutOfMemoryException ex)
+        {
+            throw new InvalidOperationException($"Insufficient memory to process image of size {input.Width}x{input.Height}", ex);
+        }
     }
 
     private void ApplyKernel(Image source, Image target, bool horizontal)
@@ -75,8 +90,15 @@ public class GaussianBlurProcessor : IImageProcessor
 
     public void Configure(Dictionary<string, object> parameters)
     {
+        ArgumentNullException.ThrowIfNull(parameters);
+
         if (parameters.TryGetValue("sigma", out var sigmaObj) && sigmaObj is float sigma)
         {
+            if (sigma <= 0)
+                throw new ArgumentOutOfRangeException(nameof(sigma), "Sigma must be positive");
+            if (sigma > 100)
+                throw new ArgumentOutOfRangeException(nameof(sigma), "Sigma too large, maximum value is 100");
+
             _sigma = sigma;
             _kernelSize = CalculateKernelSize(sigma);
             Generate1DKernel();

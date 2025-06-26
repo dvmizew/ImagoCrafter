@@ -32,8 +32,11 @@ class Program
 
         try
         {
-            var image = ImageLoader.Load(inputFile);
-            ProcessImage(command, image, args);
+            using var progressReporter = new ShellProgressReporter("Loading image...");
+            var image = ImageLoader.Load(inputFile, progressReporter);
+            
+            progressReporter.Report(0, "Starting image processing...");
+            ProcessImage(command, image, args, progressReporter);
         }
         catch (Exception ex)
         {
@@ -41,24 +44,29 @@ class Program
         }
     }
 
-    private static void ProcessImage(string command, Image image, string[] args)
+    private static void ProcessImage(string command, Image image, string[] args, IProgressReporter? progressReporter = null)
     {
         Image? result;
 
         switch (command)
         {
             case "blur":
+                progressReporter?.Report(0, "Starting blur operation...");
                 float sigma = args.Length > 2 ? ParseFloat(args[2], 1.0f) : 1.0f;                    
                 result = new GaussianBlurProcessor(sigma).Process(image);
+                progressReporter?.Report(100, "Blur operation completed");
                 break;
 
             case "vignette":
+                progressReporter?.Report(0, "Starting vignette operation...");
                 float strength = args.Length > 2 ? ParseFloat(args[2], 0.5f) : 0.5f;
                 float radius = args.Length > 3 ? ParseFloat(args[3], 1.0f) : 1.0f;
                 result = new VignetteProcessor(strength, radius).Process(image);
+                progressReporter?.Report(100, "Vignette operation completed");
                 break;
 
             case "resize":
+                progressReporter?.Report(0, "Starting resize operation...");
                 if (args.Length < 3)
                 {
                     Console.WriteLine("Error: Either percentage or width/height parameters are required for resize.");
@@ -118,13 +126,16 @@ class Program
                 }
 
                 result = new ResizeProcessor(width, height).Process(image);
+                progressReporter?.Report(100, "Resize operation completed");
                 break;
 
             case "sharpen":
+                progressReporter?.Report(0, "Starting sharpen operation...");
                 float sharpStrength = args.Length > 2 ? ParseFloat(args[2], 0.5f) : 0.5f;
                 float sharpRadius = args.Length > 3 ? ParseFloat(args[3], 1.0f) : 1.0f;
                 float threshold = args.Length > 4 ? ParseFloat(args[4], 0.0f) : 0.0f;
                 result = new UnsharpMaskProcessor(sharpStrength, sharpRadius, threshold).Process(image);
+                progressReporter?.Report(100, "Sharpen operation completed");
                 break;
 
             default:
@@ -136,7 +147,8 @@ class Program
         if (result != null)
         {
             string outputFile = Path.ChangeExtension(args[1], ".processed" + Path.GetExtension(args[1]));
-            ImageLoader.Save(result, outputFile);
+            Console.WriteLine();
+            ImageLoader.Save(result, outputFile, progressReporter);
             Console.WriteLine($"Image saved to: {outputFile}");
         }
     }
