@@ -2,16 +2,10 @@ using ImagoCrafter.Core;
 
 namespace ImagoCrafter.Processing.Filters;
 
-public class VignetteProcessor : IImageProcessor
+public class VignetteProcessor(float strength = 0.5f, float radius = 1.0f) : IImageProcessor
 {
-    private float _strength;
-    private float _radius;
-
-    public VignetteProcessor(float strength = 0.5f, float radius = 1.0f)
-    {
-        _strength = strength;
-        _radius = radius;
-    }
+    private float _strength = strength;
+    private float _radius = radius;
 
     public Image Process(Image input)
     {

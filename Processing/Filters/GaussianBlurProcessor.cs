@@ -6,7 +6,7 @@ public class GaussianBlurProcessor : IImageProcessor
 {
     private float _sigma;
     private int _kernelSize;
-    private float[] _kernel1D = Array.Empty<float>();
+    private float[] _kernel1D = [];
 
     public GaussianBlurProcessor(float sigma = 1.0f)
     {

@@ -1,20 +1,12 @@
 using ImagoCrafter.Core;
-using ImagoCrafter.Processing.Kernels;
 
 namespace ImagoCrafter.Processing.Filters;
 
-public class UnsharpMaskProcessor : IImageProcessor
+public class UnsharpMaskProcessor(float strength = 0.5f, float radius = 1.0f, float threshold = 0.0f) : IImageProcessor
 {
-    private float _strength;
-    private float _radius;
-    private float _threshold;
-
-    public UnsharpMaskProcessor(float strength = 0.5f, float radius = 1.0f, float threshold = 0.0f)
-    {
-        _strength = strength;
-        _radius = radius;
-        _threshold = threshold;
-    }
+    private float _strength = strength;
+    private float _radius = radius;
+    private float _threshold = threshold;
 
     public Image Process(Image input)
     {

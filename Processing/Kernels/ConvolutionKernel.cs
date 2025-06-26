@@ -1,19 +1,11 @@
 namespace ImagoCrafter.Processing.Kernels;
 
-public class ConvolutionKernel
+public class ConvolutionKernel(int size)
 {
-    protected float[,] _kernel;
-    protected int _size;
-    protected float _factor;
-    protected float _bias;
-
-    public ConvolutionKernel(int size)
-    {
-        _size = size;
-        _kernel = new float[size, size];
-        _factor = 1.0f;
-        _bias = 0.0f;
-    }
+    protected float[,] _kernel = new float[size, size];
+    protected int _size = size;
+    protected float _factor = 1.0f;
+    protected float _bias = 0.0f;
 
     public float[,] Matrix => _kernel;
     public float Factor => _factor;

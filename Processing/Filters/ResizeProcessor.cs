@@ -1,21 +1,13 @@
 using ImagoCrafter.Core;
-using ImagoCrafter.Processing.Kernels;
-using ImagoCrafter.Processing.Convolution;
 
 namespace ImagoCrafter.Processing.Filters;
 
-public class ResizeProcessor : IImageProcessor
+public class ResizeProcessor(int width, int height) : IImageProcessor
 {
-    private int _targetWidth;
-    private int _targetHeight;
+    private int _targetWidth = width;
+    private int _targetHeight = height;
     private float _sharpenStrength = 0.5f;
 
-    public ResizeProcessor(int width, int height)
-    {
-        _targetWidth = width;
-        _targetHeight = height;
-    }
-    
     public Image Process(Image input)
     {
         var output = new Image(_targetWidth, _targetHeight, input.Channels);
@@ -28,7 +20,7 @@ public class ResizeProcessor : IImageProcessor
         float widthRatio = _targetWidth / (float)input.Width;
         float heightRatio = _targetHeight / (float)input.Height;
         float upscaleRatio = Math.Max(widthRatio, heightRatio);
-        bool isUpscaling = upscaleRatio > 1.0f;
+        bool isUpscaling = upscaleRatio > 1.0f; // if upscaling we use unsharp mask
 
         var xCoords = new int[_targetWidth][];
         var xWeights = new float[_targetWidth];

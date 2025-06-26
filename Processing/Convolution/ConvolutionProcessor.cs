@@ -3,14 +3,9 @@ namespace ImagoCrafter.Processing.Convolution;
 using ImagoCrafter.Core;
 using ImagoCrafter.Processing.Kernels;
 
-public class ConvolutionProcessor : IImageProcessor
+public class ConvolutionProcessor(ConvolutionKernel kernel) : IImageProcessor
 {
-    protected ConvolutionKernel _kernel;
-
-    public ConvolutionProcessor(ConvolutionKernel kernel)
-    {
-        _kernel = kernel;
-    }
+    protected ConvolutionKernel _kernel = kernel;
 
     public virtual Image Process(Image input)
     {

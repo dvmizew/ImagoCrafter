@@ -3,6 +3,7 @@ namespace ImagoCrafter.Core;
 using System.IO;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 
 public class ImageLoader
 {
@@ -14,12 +15,20 @@ public class ImageLoader
         }
 
         using var imageSharp = SixLabors.ImageSharp.Image.Load<Rgb24>(filePath);
+        
+        // EXIF orientation correction
+        imageSharp.Mutate(x => x.AutoOrient());
+        
         return ConvertFromImageSharp(imageSharp);
     }
 
     public static void Save(Image image, string filePath)
     {
         using var imageSharp = ConvertToImageSharp(image);
+        
+        // Remove EXIF data when saving since we've already applied orientation corrections
+        imageSharp.Metadata.ExifProfile = null;
+        
         imageSharp.Save(filePath);
     }
 
