@@ -60,10 +60,9 @@ jobs:
       shell: powershell
       run: |
         Write-Host "Installing required Windows dependencies..."
-        # Adăugat aici pentru viitoarele dependențe
     
     - name: Publish Windows Executable
-      run: dotnet publish --configuration Release --runtime win-x64 --self-contained true /p:PublishSingleFile=true /p:PublishReadyToRun=true /p:DebugType=embedded --output ./publish-win
+      run: dotnet publish ImagoCrafter.csproj --configuration Release --runtime win-x64 --self-contained true /p:PublishSingleFile=true /p:PublishReadyToRun=true /p:DebugType=embedded --output ./publish-win
     
     - name: Upload Windows Artifact
       uses: actions/upload-artifact@v4
@@ -88,7 +87,7 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
     - name: Publish Linux Executable
-      run: dotnet publish --configuration Release --runtime linux-x64 --self-contained true /p:PublishSingleFile=true /p:PublishReadyToRun=true /p:DebugType=embedded --output ./publish-linux
+      run: dotnet publish ImagoCrafter.csproj --configuration Release --runtime linux-x64 --self-contained true /p:PublishSingleFile=true /p:PublishReadyToRun=true /p:DebugType=embedded --output ./publish-linux
     
     - name: Set version
       run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
@@ -106,7 +105,7 @@ jobs:
         
         cat > ./deb-package/DEBIAN/control << EOF
         Package: imagocrafter
-        Version: $(echo $VERSION)
+        Version: $VERSION
         Section: graphics
         Priority: optional
         Architecture: amd64
@@ -163,7 +162,7 @@ jobs:
       run: dotnet restore
 
     - name: Publish macOS Executable
-      run: dotnet publish --configuration Release --runtime osx-x64 --self-contained false /p:PublishSingleFile=true /p:DebugType=embedded --output ./publish-macos
+      run: dotnet publish ImagoCrafter.csproj --configuration Release --runtime osx-x64 --self-contained true /p:PublishSingleFile=true /p:DebugType=embedded --output ./publish-macos
 
     - name: Cleanup publish folder
       run: |
@@ -188,17 +187,18 @@ jobs:
             <key>CFBundleName</key>
             <string>ImagoCrafter</string>
             <key>CFBundleVersion</key>
-            <string>$(echo $VERSION)</string>
+            <string>$VERSION</string>
             <key>CFBundleShortVersionString</key>
-            <string>$(echo $VERSION)</string>
+            <string>$VERSION</string>
         </dict>
         </plist>
         EOF
 
     - name: Create DMG file
       run: |
-        hdiutil create -volname "ImagoCrafter" -srcfolder ./dmg-build -ov -format UDZO /tmp/ImagoCrafter-${{ github.ref_name }}.dmg
+        hdiutil create -volname "ImagoCrafter" -srcfolder ./dmg-build -ov -format UDBZ -imagekey zlib-level=9 /tmp/ImagoCrafter-${{ github.ref_name }}.dmg
         mv /tmp/ImagoCrafter-${{ github.ref_name }}.dmg ./
+        rm -rf ./dmg-build
 
     - name: Upload macOS Artifact
       uses: actions/upload-artifact@v4
