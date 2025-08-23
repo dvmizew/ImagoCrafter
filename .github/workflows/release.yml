@@ -17,6 +17,9 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Install Packaging.Targets
+        run: dotnet add package Packaging.Targets
+
       - name: Install dotnet-deb-tool
         run: dotnet tool install --global dotnet-deb
 
@@ -24,7 +27,11 @@ jobs:
         run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
 
       - name: Build DEB (Linux)
-        run: dotnet deb -c Release -r linux-x64 -o publish
+        run: |
+          dotnet deb install
+          VERSION=${GITHUB_REF#refs/tags/v}
+          dotnet deb -c Release -r linux-x64 -o publish --version $VERSION
+          chmod +x publish/ImagoCrafter
       
       - name: Upload DEB artifact
         uses: actions/upload-artifact@v4
@@ -37,13 +44,23 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: fedora:latest
+    env:
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
     steps:
       - uses: actions/checkout@v3
 
       - name: Install .NET
         run: |
-          dnf install -y dotnet-sdk-8.0
+          dnf install -y wget
           dnf install -y findutils
+          wget https://dot.net/v1/dotnet-install.sh
+          chmod +x dotnet-install.sh
+          ./dotnet-install.sh --channel 8.0
+          echo "$HOME/.dotnet" >> $GITHUB_PATH
+
+      - name: Install Packaging.Targets
+        run: dotnet add package Packaging.Targets
       
       - name: Install dotnet-rpm-tool
         run: dotnet tool install --global dotnet-rpm
@@ -52,7 +69,11 @@ jobs:
         run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
 
       - name: Build RPM (Linux)
-        run: dotnet rpm -c Release -r linux-x64 -o publish
+        run: |
+          dotnet rpm install
+          VERSION=${GITHUB_REF#refs/tags/v}
+          dotnet rpm -c Release -r linux-x64 -o publish --version $VERSION
+          chmod +x publish/ImagoCrafter
       
       - name: Upload RPM artifact
         uses: actions/upload-artifact@v4
@@ -74,6 +95,15 @@ jobs:
       - name: Build Windows EXE
         run: dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
 
+      - name: Set file properties
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem -Path publish -Filter *.exe -Recurse
+          foreach ($file in $files) {
+            Write-Host "Setting properties for $($file.FullName)"
+            $file.VersionInfo
+          }
+      
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
@@ -93,9 +123,43 @@ jobs:
 
       - name: Build DMG (macOS)
         run: |
-          dotnet publish -c Release -r osx-x64 --self-contained true -p:PublishSingleFile=true -o publish
+          dotnet publish -c Release -r osx-x64 --self-contained true -p:PublishSingleFile=true -o temp
+
+          mkdir -p ImagoCrafter.app/Contents/MacOS
+          mkdir -p ImagoCrafter.app/Contents/Resources
+          
+          cat > ImagoCrafter.app/Contents/Info.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>ImagoCrafter</string>
+              <key>CFBundleIconFile</key>
+              <string>AppIcon</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.dvmizew.imagocrafter</string>
+              <key>CFBundleInfoDictionaryVersion</key>
+              <string>6.0</string>
+              <key>CFBundleName</key>
+              <string>ImagoCrafter</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleShortVersionString</key>
+              <string>1.0</string>
+              <key>LSMinimumSystemVersion</key>
+              <string>10.15</string>
+          </dict>
+          </plist>
+          EOF
+          
+          EXE_NAME=$(find temp -type f -not -name "*.pdb" -not -name "*.dll" -exec file {} \; | grep -i executable | cut -d':' -f1)
+          echo "Executable found: $EXE_NAME"
+          cp "$EXE_NAME" ImagoCrafter.app/Contents/MacOS/ImagoCrafter
+          chmod +x ImagoCrafter.app/Contents/MacOS/ImagoCrafter
+          
           npm install -g create-dmg
-          create-dmg publish/ImagoCrafter osx-dmg
+          create-dmg --app-drop-link 380 120 --icon "ImagoCrafter" 200 120 --window-size 600 400 ImagoCrafter.app osx-dmg
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
@@ -116,6 +180,17 @@ jobs:
 
       - name: List files
         run: find . -type f | sort
+        
+      - name: Verify artifact contents
+        run: |
+          echo "Windows executable files:"
+          find ImagoCrafter.exe -type f
+          echo "Linux DEB files:"
+          find ImagoCrafter.deb -type f
+          echo "Linux RPM files:"
+          find ImagoCrafter.rpm -type f
+          echo "macOS DMG files:"
+          find ImagoCrafter.dmg -type f
 
       - name: Get version from tag
         id: get_version
