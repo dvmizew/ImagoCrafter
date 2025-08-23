@@ -139,10 +139,15 @@ jobs:
         echo "Before cleanup:"
         df -h /
         sudo rm -rf /usr/local/lib/android || true
-        sudo rm -rf /Applications/Xcode* || true
+        sudo rm -rf /Applications/Xcode*.app || true
         sudo rm -rf /Library/Developer/CommandLineTools || true
-        sudo rm -rf "$HOME/Library/Caches/Homebrew"
-        echo "After cleanup:"
+        sudo rm -rf "$HOME/Library/Caches/Homebrew" || true
+        sudo rm -rf /usr/local/share/dotnet || true
+        sudo rm -rf /opt/ghc || true
+        sudo rm -rf /usr/local/share/chromium || true
+        sudo rm -rf /usr/local/lib/node_modules || true
+        sudo rm -rf /private/var/folders/*/T/* || true
+        sudo swapoff -a || true
         df -h /
 
     - name: Setup .NET
@@ -196,7 +201,7 @@ jobs:
 
     - name: Create DMG file
       run: |
-        hdiutil create -volname "ImagoCrafter" -srcfolder ./dmg-build -ov -format UDBZ -imagekey zlib-level=9 /tmp/ImagoCrafter-${{ github.ref_name }}.dmg
+        hdiutil create -volname "ImagoCrafter" -srcfolder ./dmg-build -ov -format UDZO /tmp/ImagoCrafter-${{ github.ref_name }}.dmg
         mv /tmp/ImagoCrafter-${{ github.ref_name }}.dmg ./
         rm -rf ./dmg-build
 
