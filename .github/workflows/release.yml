@@ -104,10 +104,6 @@ jobs:
         cp ./publish-linux/ImagoCrafter ./deb-package/usr/local/bin/
         chmod +x ./deb-package/usr/local/bin/ImagoCrafter
         
-        if [ -f "README.md" ]; then
-          cp README.md ./deb-package/usr/local/share/doc/imagocrafter/
-        fi
-        
         cat > ./deb-package/DEBIAN/control << EOF
         Package: imagocrafter
         Version: $(echo $VERSION)
@@ -180,10 +176,6 @@ jobs:
         cp -r ./publish-macos/* ./dmg-build/ImagoCrafter.app/Contents/MacOS/
         chmod +x ./dmg-build/ImagoCrafter.app/Contents/MacOS/ImagoCrafter
         
-        if [ -f "README.md" ]; then
-          cp README.md ./dmg-build/
-        fi
-        
         cat > ./dmg-build/ImagoCrafter.app/Contents/Info.plist << EOF
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -243,7 +235,6 @@ jobs:
           ./windows-artifact/*.exe
           ./linux-artifact/ImagoCrafter-${{ github.ref_name }}.deb
           ./macos-artifact/ImagoCrafter-${{ github.ref_name }}.dmg
-          README.md
         name: Release ${{ github.ref_name }}
         draft: false
         prerelease: false
