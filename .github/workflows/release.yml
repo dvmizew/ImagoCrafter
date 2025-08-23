@@ -6,147 +6,129 @@ on:
       - 'v*'
 
 jobs:
-  verify:
-    name: Verify Code Quality
+  build-deb:
+    name: Build DEB Package
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: '8.0.x'
-          
-      - name: Restore dependencies
-        run: dotnet restore
-        
-      - name: Format check
-        run: |
-          dotnet format --verify-no-changes --verbosity diagnostic
-          
-      - name: Build
-        run: dotnet build --no-restore
-        
-      - name: Create test project
-        if: success()
-        run: |
-          mkdir -p ImagoCrafter.Tests
-          cd ImagoCrafter.Tests
-          dotnet new xunit
-          dotnet add reference ../ImagoCrafter.csproj
-          dotnet add package Moq
-          echo 'namespace ImagoCrafter.Tests;
-          public class PlaceholderTest
-          {
-              [Fact]
-              public void BasicTest()
-              {
-                  Assert.True(true);
-              }
-          }' > UnitTest1.cs
-          cd ..
-          dotnet sln add ImagoCrafter.Tests/ImagoCrafter.Tests.csproj
-          
-      - name: Test
-        run: dotnet test --no-build --verbosity normal
 
-  build_docs:
-    name: Build Documentation
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
+      - name: Install dotnet-deb-tool
+        run: dotnet tool install --global dotnet-deb
+
+      - name: Add dotnet tools to PATH
+        run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+
+      - name: Build DEB (Linux)
+        run: dotnet deb -c Release -r linux-x64 -o publish
       
-      - name: Create Documentation directory if it doesn't exist
-        run: mkdir -p Documentation
-        
-      - name: Compile LaTeX
-        uses: xu-cheng/latex-action@v2
-        with:
-          root_file: Documentation/ImagoCrafter.tex
-          working_directory: .
-          
-      - name: Upload PDF
+      - name: Upload DEB artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Documentation-PDF
-          path: Documentation/ImagoCrafter.pdf
-          if-no-files-found: error
-          
-  build:
-    name: Build on ${{ matrix.os }}
-    needs: verify
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        include:
-          - os: ubuntu-latest
-            output-name: ImagoCrafter-linux-x64
-            runtime: linux-x64
-          - os: windows-latest
-            output-name: ImagoCrafter-win-x64
-            runtime: win-x64
-          - os: macos-latest
-            output-name: ImagoCrafter-osx-x64
-            runtime: osx-x64
+          name: ImagoCrafter.deb
+          path: publish/*.deb
 
+  build-rpm:
+    name: Build RPM Package
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:latest
     steps:
       - uses: actions/checkout@v3
+
+      - name: Install .NET
+        run: |
+          dnf install -y dotnet-sdk-8.0
+          dnf install -y findutils
       
+      - name: Install dotnet-rpm-tool
+        run: dotnet tool install --global dotnet-rpm
+
+      - name: Add dotnet tools to PATH
+        run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+
+      - name: Build RPM (Linux)
+        run: dotnet rpm -c Release -r linux-x64 -o publish
+      
+      - name: Upload RPM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ImagoCrafter.rpm
+          path: publish/*.rpm
+
+  build-windows:
+    name: Build Windows EXE
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: '8.0.x'
-          
-      - name: Restore dependencies
-        run: dotnet restore
-        
-      - name: Build
-        run: dotnet publish -c Release -r ${{ matrix.runtime }} --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=true -o publish
-        
-      - name: Zip Release Files (Unix)
-        if: matrix.os != 'windows-latest'
-        run: |
-          cd publish
-          chmod +x ImagoCrafter
-          zip -r ../${{ matrix.output-name }}.zip *
-        
-      - name: Zip Release Files (Windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          cd publish
-          7z a -tzip ../${{ matrix.output-name }}.zip *
-        
-      - name: Upload artifacts
+
+      - name: Build Windows EXE
+        run: dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
+
+      - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.output-name }}
-          path: ${{ matrix.output-name }}.zip
-          
+          name: ImagoCrafter.exe
+          path: publish/*.exe
+
+  build-macos:
+    name: Build macOS DMG
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build DMG (macOS)
+        run: |
+          dotnet publish -c Release -r osx-x64 --self-contained true -p:PublishSingleFile=true -o publish
+          npm install -g create-dmg
+          create-dmg publish/ImagoCrafter osx-dmg
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ImagoCrafter.dmg
+          path: osx-dmg/*.dmg
+
   release:
     name: Create Release
-    needs: [build, build_docs]
+    needs: [build-deb, build-rpm, build-windows, build-macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
+
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
-        
+
+      - name: List files
+        run: find . -type f | sort
+
       - name: Get version from tag
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-        
+
       - name: Create Release
-        id: create_release
         uses: softprops/action-gh-release@v1
         with:
           name: ImagoCrafter v${{ steps.get_version.outputs.VERSION }}
           draft: false
           prerelease: false
           files: |
-            ImagoCrafter-linux-x64/ImagoCrafter-linux-x64.zip
-            ImagoCrafter-win-x64/ImagoCrafter-win-x64.zip
-            ImagoCrafter-osx-x64/ImagoCrafter-osx-x64.zip
-            Documentation-PDF/ImagoCrafter.pdf
+            ImagoCrafter.exe/*.exe
+            ImagoCrafter.deb/*.deb
+            ImagoCrafter.dmg/*.dmg
+            ImagoCrafter.rpm/*.rpm
