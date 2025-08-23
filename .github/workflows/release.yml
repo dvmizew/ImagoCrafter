@@ -134,10 +134,23 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
+
+    - name: Free up space
+      run: |
+        echo "Before cleanup:"
+        df -h /
+        sudo rm -rf /usr/local/lib/android || true
+        sudo rm -rf /Applications/Xcode* || true
+        sudo rm -rf /Library/Developer/CommandLineTools || true
+        sudo rm -rf "$HOME/Library/Caches/Homebrew"
+        echo "After cleanup:"
+        df -h /
+
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.x
+
     - name: Set version
       run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
       
@@ -145,11 +158,18 @@ jobs:
       run: |
         brew update
         brew install create-dmg || echo "create-dmg already installed"
+
     - name: Restore dependencies
       run: dotnet restore
+
     - name: Publish macOS Executable
-      run: dotnet publish --configuration Release --runtime osx-x64 --self-contained true /p:PublishSingleFile=true /p:PublishReadyToRun=true /p:DebugType=embedded --output ./publish-macos
-    
+      run: dotnet publish --configuration Release --runtime osx-x64 --self-contained false /p:PublishSingleFile=true /p:DebugType=embedded --output ./publish-macos
+
+    - name: Cleanup publish folder
+      run: |
+        rm -f ./publish-macos/*.pdb
+        rm -f ./publish-macos/*.xml
+
     - name: Create DMG structure
       run: |
         mkdir -p ./dmg-build/ImagoCrafter.app/Contents/{MacOS,Resources}
@@ -178,11 +198,12 @@ jobs:
         </dict>
         </plist>
         EOF
-    
+
     - name: Create DMG file
       run: |
-        hdiutil create -volname "ImagoCrafter" -srcfolder ./dmg-build -ov -format UDZO ./ImagoCrafter-${{ github.ref_name }}.dmg
-    
+        hdiutil create -volname "ImagoCrafter" -srcfolder ./dmg-build -ov -format UDZO /tmp/ImagoCrafter-${{ github.ref_name }}.dmg
+        mv /tmp/ImagoCrafter-${{ github.ref_name }}.dmg ./
+
     - name: Upload macOS Artifact
       uses: actions/upload-artifact@v4
       with:
