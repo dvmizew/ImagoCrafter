@@ -1,0 +1,227 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+    - name: Restore dependencies
+      run: dotnet restore
+    - name: Build
+      run: dotnet build --no-restore --configuration Release
+    
+    - name: Check for test projects
+      id: check_tests
+      run: |
+        if ls **/*.Tests.csproj 1> /dev/null 2>&1 || ls **/*Test*.csproj 1> /dev/null 2>&1; then
+          echo "has_tests=true" >> $GITHUB_OUTPUT
+        else
+          echo "has_tests=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Test
+      if: steps.check_tests.outputs.has_tests == 'true'
+      run: dotnet test --no-build --verbosity normal --configuration Release
+    
+    - name: Skip Tests
+      if: steps.check_tests.outputs.has_tests != 'true'
+      run: echo "No test projects found. Skipping tests."
+
+  publish-windows:
+    needs: build
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+    - name: Restore dependencies
+      run: dotnet restore
+    
+    - name: Install dependencies
+      shell: powershell
+      run: |
+        Write-Host "Installing required Windows dependencies..."
+        # Adăugat aici pentru viitoarele dependențe
+    
+    - name: Publish Windows Executable
+      run: dotnet publish --configuration Release --runtime win-x64 --self-contained true /p:PublishSingleFile=true /p:PublishReadyToRun=true /p:DebugType=embedded --output ./publish-win
+    
+    - name: Upload Windows Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-artifact
+        path: ./publish-win/*.exe
+
+  publish-linux:
+    needs: build
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+    - name: Install dependencies
+      run: |
+        sudo apt-get update -y
+        sudo apt-get install -y debhelper fakeroot lintian build-essential
+    - name: Restore dependencies
+      run: dotnet restore
+    - name: Publish Linux Executable
+      run: dotnet publish --configuration Release --runtime linux-x64 --self-contained true /p:PublishSingleFile=true /p:PublishReadyToRun=true /p:DebugType=embedded --output ./publish-linux
+    
+    - name: Set version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+        
+    - name: Create DEB package structure
+      run: |
+        mkdir -p ./deb-package/usr/local/bin
+        mkdir -p ./deb-package/usr/local/share/imagocrafter
+        mkdir -p ./deb-package/usr/local/share/doc/imagocrafter
+        mkdir -p ./deb-package/DEBIAN
+        chmod -R 755 ./deb-package/DEBIAN
+        
+        cp ./publish-linux/ImagoCrafter ./deb-package/usr/local/bin/
+        chmod +x ./deb-package/usr/local/bin/ImagoCrafter
+        
+        if [ -f "README.md" ]; then
+          cp README.md ./deb-package/usr/local/share/doc/imagocrafter/
+        fi
+        
+        cat > ./deb-package/DEBIAN/control << EOF
+        Package: imagocrafter
+        Version: $(echo $VERSION)
+        Section: graphics
+        Priority: optional
+        Architecture: amd64
+        Depends: libc6 (>= 2.17)
+        Maintainer: dvmizew
+        Description: ImagoCrafter image processing application
+         A tool for image processing and manipulation
+         with various filters and effects.
+        EOF
+    
+    - name: Build DEB package
+      run: |
+        dpkg-deb --build ./deb-package
+        mv ./deb-package.deb ./ImagoCrafter-${{ github.ref_name }}.deb
+    
+    - name: Upload Linux Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-artifact
+        path: ./ImagoCrafter-${{ github.ref_name }}.deb
+
+  publish-macos:
+    needs: build
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+    - name: Set version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+      
+    - name: Install dependencies
+      run: |
+        brew update
+        brew install create-dmg || echo "create-dmg already installed"
+    - name: Restore dependencies
+      run: dotnet restore
+    - name: Publish macOS Executable
+      run: dotnet publish --configuration Release --runtime osx-x64 --self-contained true /p:PublishSingleFile=true /p:PublishReadyToRun=true /p:DebugType=embedded --output ./publish-macos
+    
+    - name: Create DMG structure
+      run: |
+        mkdir -p ./dmg-build/ImagoCrafter.app/Contents/{MacOS,Resources}
+        cp -r ./publish-macos/* ./dmg-build/ImagoCrafter.app/Contents/MacOS/
+        chmod +x ./dmg-build/ImagoCrafter.app/Contents/MacOS/ImagoCrafter
+        
+        if [ -f "README.md" ]; then
+          cp README.md ./dmg-build/
+        fi
+        
+        cat > ./dmg-build/ImagoCrafter.app/Contents/Info.plist << EOF
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>CFBundleExecutable</key>
+            <string>ImagoCrafter</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.dvmizew.imagocrafter</string>
+            <key>CFBundleName</key>
+            <string>ImagoCrafter</string>
+            <key>CFBundleVersion</key>
+            <string>$(echo $VERSION)</string>
+            <key>CFBundleShortVersionString</key>
+            <string>$(echo $VERSION)</string>
+        </dict>
+        </plist>
+        EOF
+    
+    - name: Create DMG file
+      run: |
+        hdiutil create -volname "ImagoCrafter" -srcfolder ./dmg-build -ov -format UDZO ./ImagoCrafter-${{ github.ref_name }}.dmg
+    
+    - name: Upload macOS Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: macos-artifact
+        path: ./ImagoCrafter-${{ github.ref_name }}.dmg
+
+  create-release:
+    needs: [publish-windows, publish-linux, publish-macos]
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download All Artifacts
+      uses: actions/download-artifact@v4
+    
+    - name: Check artifacts
+      run: |
+        echo "Verifying artifacts..."
+        ls -la ./windows-artifact/ || echo "Windows artifact missing"
+        ls -la ./linux-artifact/ || echo "Linux artifact missing"
+        ls -la ./macos-artifact/ || echo "macOS artifact missing"
+        
+        WINDOWS_EXE=$(find ./windows-artifact -name "*.exe" -type f | head -n 1)
+        echo "Found Windows executable: $WINDOWS_EXE"
+        echo "windows_exe=$(basename $WINDOWS_EXE)" >> $GITHUB_ENV
+    
+    - name: Create Release
+      id: create_release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          ./windows-artifact/*.exe
+          ./linux-artifact/ImagoCrafter-${{ github.ref_name }}.deb
+          ./macos-artifact/ImagoCrafter-${{ github.ref_name }}.dmg
+          README.md
+        name: Release ${{ github.ref_name }}
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
