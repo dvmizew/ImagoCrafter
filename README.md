@@ -8,7 +8,7 @@ ImagoCrafter is a image processing application built in C# on .NET 9.0, providin
 [![GitHub downloads](https://img.shields.io/github/downloads/dvmizew/ImagoCrafter/total?style=flat-square&color=green)](https://github.com/dvmizew/ImagoCrafter/releases)
 [![GitHub stars](https://img.shields.io/github/stars/dvmizew/ImagoCrafter?style=flat-square&color=yellow)](https://github.com/dvmizew/ImagoCrafter/stargazers)
 [![GitHub license](https://img.shields.io/github/license/dvmizew/ImagoCrafter?style=flat-square&color=orange)](https://github.com/dvmizew/ImagoCrafter/blob/main/LICENSE)
-[![.NET](https://img.shields.io/badge/.NET-8.0-purple?style=flat-square)](https://dotnet.microsoft.com/download/dotnet/8.0)
+[![.NET](https://img.shields.io/badge/.NET-9.0-purple?style=flat-square)](https://dotnet.microsoft.com/download/dotnet/9.0)
 
 **[Download the latest version from Releases page](https://github.com/dvmizew/ImagoCrafter/releases)**
 
