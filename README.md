@@ -1,6 +1,6 @@
 # ImagoCrafter
 
-ImagoCrafter is an advanced image processing application built in C# on .NET 8.0, providing a comprehensive suite of filters and processing techniques accessible via a command-line interface.
+ImagoCrafter is a image processing application built in C# on .NET 9.0, providing a suite of filters and processing techniques accessible via a command-line interface.
 
 ## Downloads
 
